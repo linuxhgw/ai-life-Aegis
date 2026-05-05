@@ -2,20 +2,15 @@
 name: git-auto-commit
 version: 1.0.0
 description: |
-  检查 git 变更，判断是否符合提交规范，如符合则自主提交。
-  Stop hook 检测到未提交变更后自动调用此 skill。
-  根据最小提交单元原则判断变更是否构成完整提交：
-  符合规范 → 自主执行 git add + git commit（中文信息）
-  不符合规范 → 不提交，向用户说明原因。
-  使用场景：对话结束时自动检查、有 git 变更时主动调用、
-  用户要求"帮我提交"时使用。
+  检查 git 变更，判断是否符合提交规范，符合则自主执行 git add + git commit。
+  触发场景：对话结束时 Stop hook 检测到未提交变更、用户主动说"检查 git"或"帮我提交"。
+  核心逻辑：有变更 → 判断是否完整 → 符合规范提交 / 不符合说明原因。
 triggers:
-  - 检查 git 变更
-  - 帮我提交
-  - 自动提交
-  - commit
-  - 提交代码
+  - 检查 git 变更并提交
+  - 帮我提交 git
   - 有未提交的变更吗
+  - 自动提交
+  - git commit
 allowed-tools:
   - Bash
   - Read
