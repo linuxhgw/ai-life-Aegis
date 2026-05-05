@@ -40,6 +40,17 @@ feat(docs): 添加 Hermes 方案设计文档
 Closes #1
 ```
 
+### 自动提交机制
+
+每次对话结束时，Stop hook 会检测 git 变更并判断是否构成完整提交。如满足以下全部条件，则自主提交：
+
+- 有 staged 或 unstaged 变更
+- 变更属于同一功能/修复/改动
+- 可以用一句 subject 描述清楚
+- 是独立、可验证的单元
+
+**不构成提交**：仅有格式调整、变更不完整、破坏性操作未确认。
+
 ## 项目概述
 
 个人 AI 生活助手系统设计文档仓库，处于早期规划阶段。`docs/` 目录下有两份设计方案：
@@ -51,7 +62,11 @@ Closes #1
 
 ```
 ai-life-Aegis/
-├── docs/                          # 设计文档与方案
+├── .claude/
+│   ├── settings.json               # 钩子配置
+│   └── skills/
+│       └── git-auto-commit.md      # Git 自动提交 skill
+├── docs/                            # 设计文档与方案
 └── CLAUDE.md
 ```
 
@@ -60,3 +75,4 @@ ai-life-Aegis/
 - 新增设计文档：`git add docs/<文件名>.md` → `git commit`
 - 查看提交历史：`git log --oneline`
 - 审查提案：阅读 `docs/` 目录下的文件
+- 手动触发自动提交判断：调用 `git-auto-commit` skill
