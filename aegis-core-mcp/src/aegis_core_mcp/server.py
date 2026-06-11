@@ -47,11 +47,17 @@ def complete_task(task_id: int, feedback_id: int | None = None) -> dict[str, Any
 
 
 @mcp.tool()
+def delete_task(task_id: int) -> dict[str, Any]:
+    return tools.delete_task(_context(), task_id=task_id)
+
+
+@mcp.tool()
 def schedule_reminder(
     task_id: int,
     scheduled_time: str,
     level: str = "L1",
     channel: str = "core",
+    repeat_interval_minutes: int | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return tools.schedule_reminder(
@@ -60,6 +66,7 @@ def schedule_reminder(
         scheduled_time=scheduled_time,
         level=level,
         channel=channel,
+        repeat_interval_minutes=repeat_interval_minutes,
         metadata=metadata,
     )
 
@@ -67,6 +74,40 @@ def schedule_reminder(
 @mcp.tool()
 def list_due_reminders(now: str | None = None) -> dict[str, Any]:
     return tools.list_due_reminders(_context(), now=now)
+
+
+@mcp.tool()
+def dispatch_due_reminders(
+    now: str | None = None,
+    channel: str = "weixin",
+    target: str | None = None,
+    default_repeat_interval_minutes: int = 15,
+    limit: int = 20,
+) -> dict[str, Any]:
+    return tools.dispatch_due_reminders(
+        _context(),
+        now=now,
+        channel=channel,
+        target=target,
+        default_repeat_interval_minutes=default_repeat_interval_minutes,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def set_task_reminders_enabled(
+    task_id: int,
+    enabled: bool,
+    reason: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return tools.set_task_reminders_enabled(
+        _context(),
+        task_id=task_id,
+        enabled=enabled,
+        reason=reason,
+        metadata=metadata,
+    )
 
 
 @mcp.tool()

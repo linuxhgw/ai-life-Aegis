@@ -9,6 +9,10 @@ description = "Aegis Core MCP server for tasks, reminders, feedback, and executi
 requires-python = ">=3.10"
 dependencies = [
   "mcp[cli]>=1.0.0",
+  "PyYAML>=6.0.0",
+  "aiohttp>=3.9.0",
+  "requests>=2.32.0",
+  "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -18,6 +22,7 @@ dev = [
 
 [project.scripts]
 aegis-core-mcp = "aegis_core_mcp.server:main"
+aegis-reminder-worker = "aegis_core_mcp.worker:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

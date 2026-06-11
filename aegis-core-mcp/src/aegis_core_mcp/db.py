@@ -17,9 +17,11 @@ CREATE TABLE IF NOT EXISTS tasks (
   scheduled_time TEXT,
   required_feedback TEXT NOT NULL DEFAULT 'text',
   status TEXT NOT NULL DEFAULT 'pending',
+  reminders_enabled INTEGER NOT NULL DEFAULT 1,
   metadata TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at TEXT,
+  deleted_at TEXT,
   feedback_id INTEGER
 );
 
@@ -29,10 +31,12 @@ CREATE TABLE IF NOT EXISTS reminders (
   scheduled_time TEXT NOT NULL,
   level TEXT NOT NULL DEFAULT 'L1',
   channel TEXT NOT NULL DEFAULT 'core',
+  repeat_interval_minutes INTEGER,
   status TEXT NOT NULL DEFAULT 'pending',
   metadata TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   triggered_at TEXT,
+  dismissed_at TEXT,
   FOREIGN KEY(task_id) REFERENCES tasks(id)
 );
 
@@ -76,6 +80,27 @@ def connect(db_path: Path) -> sqlite3.Connection:
 def init_db(db_path: Path) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    task_columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(tasks)").fetchall()
+    }
+    if "deleted_at" not in task_columns:
+        conn.execute("ALTER TABLE tasks ADD COLUMN deleted_at TEXT")
+    if "reminders_enabled" not in task_columns:
+        conn.execute("ALTER TABLE tasks ADD COLUMN reminders_enabled INTEGER NOT NULL DEFAULT 1")
+
+    reminder_columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(reminders)").fetchall()
+    }
+    if "repeat_interval_minutes" not in reminder_columns:
+        conn.execute("ALTER TABLE reminders ADD COLUMN repeat_interval_minutes INTEGER")
+    if "dismissed_at" not in reminder_columns:
+        conn.execute("ALTER TABLE reminders ADD COLUMN dismissed_at TEXT")
 
 
 def encode_json(value: dict[str, Any] | None) -> str:
