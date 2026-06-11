@@ -20,7 +20,7 @@ Phase 1 的 Skills 目标是约束 Hermes 使用 Core MCP，把用户目标变�
 |---|---:|---|---|
 | `aegis_goal_planner` | P0 | 把自然语言目标拆成今日任务、计划时间、反馈要求 | 不写数据库、不安排提醒 |
 | `aegis_reminder_policy` | P0 | 判断 L1-L5 提醒升级策略、反馈方式升级策略 | 不计时、不弹窗、不锁屏 |
-| `aegis_plan_change_interceptor` | P0 | 处理“想改计划/跳过任务”的追问、影响评估、替代方案 | 不直接改任务状态 |
+| `aegis_plan_change_interceptor` | P0 | 处理“想改计划/跳过/取消任务”的追问、影响评估、替代方案 | 不绕过 Core MCP 改状态 |
 | `aegis_daily_review` | P0 | 基于 Core MCP 执行摘要生成昨日复盘和今日建议 | 不编造未记录事实 |
 | `aegis_feedback_validator` | P1 | 判断文字、图片、位置等反馈是否满足任务要求 | 不保存附件、不管理文件 |
 | `aegis_message_style` | P1 | 统一提醒语气、追问风格、复盘表达 | 不参与系统动作 |
@@ -62,6 +62,7 @@ Hermes + aegis_goal_planner
 - 当前应该触发的提醒等级。
 - 建议渠道，例如微信、系统通知、弹窗、遮罩。
 - 下一次升级延迟。
+- 用户要求停止提醒时，保留任务并关闭该任务提醒。
 
 等级约定：
 
@@ -72,6 +73,17 @@ Hermes + aegis_goal_planner
 | L3 | 强提醒：置顶弹窗 + 声音 + 输入反馈 |
 | L4 | 阻断提醒：倒计时遮罩 + 必填反馈 |
 | L5 | 强制阻断：全屏阻断或锁屏，需要逃生口 |
+
+定时循环约定：
+
+```text
+Hermes cron + aegis_reminder_policy
+  -> Core MCP: dispatch_due_reminders(channel="weixin") 扫描任务列表和到期提醒
+  -> Hermes send_message: 对每条 dispatch 发送微信
+  -> Core MCP: record_intervention_event(result="reminder_sent" 或 "reminder_send_failed")
+```
+
+默认同一个未完成任务每 15 分钟提醒一次。用户回复“不用提醒/别提醒/停止提醒”时，先识别具体任务，再调用 `set_task_reminders_enabled(enabled=false)`；不要把这类回复等同于取消任务。
 
 ### `aegis_plan_change_interceptor`
 
@@ -94,8 +106,10 @@ Hermes + aegis_goal_planner
 Hermes + aegis_plan_change_interceptor
   -> Core MCP: list_tasks
   -> Core MCP: record_intervention_event
-  -> Core MCP: complete_task / update_task（后续扩展）
+  -> Core MCP: set_task_reminders_enabled / complete_task / delete_task / create_task + schedule_reminder
 ```
+
+取消任务时只能走 Core MCP 的软删除：`delete_task` 将任务标记为 `deleted` 并写入 `deleted_at`。默认复盘和提醒不再把软删除任务当作活跃任务。
 
 ### `aegis_daily_review`
 
@@ -141,11 +155,13 @@ Android 权限、前台 App、位置、通知、遮罩和 App 控制都属于 MC
 
 Skills 应尽量让 Hermes 输出结构化意图，便于调用 MCP：
 
+所有传给 MCP 的时间字符串统一使用上海时区格式 `yyyy-MM-dd HH:mm:ss`；日期字段使用 `yyyy-MM-dd`。
+
 ```json
 {
   "intent": "create_task",
   "title": "20:00 后不吃零食",
-  "scheduled_time": "2026-05-27T20:00:00+08:00",
+  "scheduled_time": "2026-05-27 20:00:00",
   "required_feedback": "text"
 }
 ```

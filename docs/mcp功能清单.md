@@ -14,12 +14,14 @@ MCP:
 
 本阶段不改 Hermes 源码。Hermes 通过 MCP 工具调用 Aegis 的能力。
 
+时间格式约定：MCP 对 Hermes 展示、接收和新写入的时间字符串统一使用上海时区 `Asia/Shanghai`，格式为 `yyyy-MM-dd HH:mm:ss`；日期参数仍使用 `yyyy-MM-dd`。
+
 ## Phase 1：最小闭环
 
 Phase 1 目标是跑通：
 
 ```text
-目标输入 -> 任务创建 -> 提醒安排 -> 到期查询 -> 反馈记录 -> 任务完成 -> 执行摘要
+目标输入 -> 任务创建 -> 提醒安排 -> 定时派发 -> 微信提醒 -> 反馈记录/停止提醒 -> 任务完成/软删除 -> 执行摘要
 ```
 
 ### Aegis Core MCP
@@ -42,12 +44,42 @@ Phase 1 目标是跑通：
 | `create_task` | 创建任务，保存计划时间和反馈要求 |
 | `list_tasks` | 按日期、状态查询任务 |
 | `complete_task` | 将任务标记为完成 |
+| `delete_task` | 软删除任务，标记为 `deleted` 并记录 `deleted_at` |
 | `schedule_reminder` | 为任务安排提醒 |
 | `list_due_reminders` | 查询已到期但未触发的提醒 |
+| `dispatch_due_reminders` | 给定时循环扫描任务列表和到期提醒，生成微信发送 payload，并自动排下一次提醒 |
+| `set_task_reminders_enabled` | 按任务启停提醒；用户说“不用提醒”时关闭后续提醒但保留任务 |
 | `record_feedback` | 记录文字、附件引用或元数据反馈 |
 | `record_intervention_event` | 记录通知、弹窗、升级、用户响应等事件 |
 | `get_execution_summary` | 汇总某天任务、反馈和干预情况 |
-| `get_current_time` | 返回当前本地时间 |
+| `get_current_time` | 返回当前上海时间，格式为 `yyyy-MM-dd HH:mm:ss` |
+
+`delete_task` 不物理删除任务。默认任务列表、到期提醒和执行摘要只处理活跃任务；需要审计已删除任务时用 `list_tasks(status="deleted")`。
+
+`dispatch_due_reminders` 是定时任务入口，适合每 1 分钟由 Hermes cron 或外部守护进程调用一次。它会先扫描任务列表：只要任务 `scheduled_time` 已到或已超时、任务未完成/未删除、提醒未关闭，并且还没有任何 reminder，就自动生成第一条 reminder。调用后对每条到期提醒返回 `target`、`message`、`channel`，Hermes 再用已有 `send_message(target=..., message=...)` 通过 `weixin` 主动发出。发送成功或失败后，用 `record_intervention_event` 记录 `reminder_sent` 或 `reminder_send_failed`。
+
+提醒会按 `repeat_interval_minutes` 自动排下一次，默认 15 分钟；如果用户回复“不用提醒/别提醒/停止提醒”，Hermes 应识别具体任务并调用 `set_task_reminders_enabled(enabled=false)`，而不是删除任务。
+
+### Aegis Reminder Worker
+
+优先级：P0
+
+职责：
+
+- 常驻循环查询任务列表和到期提醒。
+- 调用 Core MCP 派发提醒。
+- 复用 Hermes `send_message` / `weixin` 通道主动发微信。
+- 将发送成功或失败结果写回干预事件。
+
+命令建议：
+
+```bash
+aegis-reminder-worker --interval-seconds 30
+```
+
+推荐配置是每 30 秒扫描一次任务列表，同一个未完成任务每 15 分钟提醒一次。扫描频率用于及时发现新到点任务；通知频率用于控制同一任务的打扰强度。
+
+Worker 不替代 Core MCP 的数据职责；它只是调度和外部发送执行器。
 
 推荐技术栈：
 
@@ -99,6 +131,7 @@ Phase 1 目标是跑通：
 
 - 微信入口。
 - L1 微信提醒。
+- Core MCP 派发 payload 后，通过 Hermes `send_message` 主动发微信。
 - 用户回复和任务反馈关联。
 
 实现顺序：

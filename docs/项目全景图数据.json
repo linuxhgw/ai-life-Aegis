@@ -1,0 +1,759 @@
+{
+  "projectName": "ai-life-Aegis",
+  "summary": "基于 Hermes Agent 的个人生活/计划助手，通过 Aegis Core MCP 落库任务、提醒、反馈和干预事件，再借助 Hermes Skills 与消息通道完成计划执行闭环。",
+  "metrics": [
+    {
+      "label": "核心模块",
+      "value": "18"
+    },
+    {
+      "label": "高风险",
+      "value": "8",
+      "tone": "red"
+    },
+    {
+      "label": "纸面规划",
+      "value": "7",
+      "tone": "amber"
+    }
+  ],
+  "zones": [
+    {
+      "id": "entry",
+      "label": "用户入口与消息通道"
+    },
+    {
+      "id": "brain",
+      "label": "Hermes 大脑与策略层"
+    },
+    {
+      "id": "core",
+      "label": "Aegis 事实与执行闭环"
+    },
+    {
+      "id": "ops",
+      "label": "接入、测试与运维"
+    },
+    {
+      "id": "future",
+      "label": "后续规划能力"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "user",
+      "title": "用户/个人目标入口",
+      "sub": "提出目标、计划调整、反馈和停止提醒请求",
+      "status": "ext",
+      "tags": [
+        "main"
+      ],
+      "owner": "用户",
+      "health": 80,
+      "completion": 100,
+      "desc": "系统服务对象，也是目标输入、反馈提交、计划变更和提醒响应的来源。",
+      "issues": [],
+      "risks": [
+        "自然语言请求需要 Hermes 正确识别具体任务，否则可能误操作任务或提醒"
+      ],
+      "evidence": [
+        "docs/skills功能清单.md",
+        "aegis-hermes-skills/aegis/aegis_goal_planner/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_plan_change_interceptor/SKILL.md"
+      ],
+      "note": "入口本身清晰，但依赖上游对话理解和任务定位能力。"
+    },
+    {
+      "id": "weixin_messaging",
+      "title": "微信/消息通道",
+      "sub": "L1 提醒和用户回复通道",
+      "status": "partial",
+      "tags": [
+        "main",
+        "risk"
+      ],
+      "owner": "Hermes/外部消息平台",
+      "health": 55,
+      "completion": 45,
+      "desc": "Core MCP 生成 send_message payload，Hermes 或 worker 复用 send_message/weixin 通道发送提醒。",
+      "issues": [
+        "没有独立 Messaging MCP",
+        "真实微信发送依赖 Hermes 环境、send_message_tool 和 weixin 配置"
+      ],
+      "risks": [
+        "消息发送失败会影响提醒闭环",
+        "用户回复与具体任务的关联逻辑主要依赖 Hermes 对话判断"
+      ],
+      "evidence": [
+        "aegis-core-mcp/README.md",
+        "aegis-core-mcp/src/aegis_core_mcp/worker.py",
+        "docs/mcp功能清单.md"
+      ],
+      "note": "已有派发和 worker 代码，但真实平台可用性未从仓库资料中确认。"
+    },
+    {
+      "id": "hermes_agent",
+      "title": "Hermes Agent",
+      "sub": "对话、模型、Skills、MCP、Cron 与消息网关宿主",
+      "status": "ext",
+      "tags": [
+        "main",
+        "risk"
+      ],
+      "owner": "Nous Research / 本地集成",
+      "health": 70,
+      "completion": 80,
+      "desc": "Aegis 当前选择不改 Hermes 源码，而是通过 Skills、MCP、Cron 和消息通道接入。",
+      "issues": [
+        "仓库包含 hermes-agent 目录，但 Aegis 对其运行配置和实际部署状态未在资料中完全证明"
+      ],
+      "risks": [
+        "Hermes 版本、MCP 配置格式、send_message 工具路径变化会影响 Aegis 集成"
+      ],
+      "evidence": [
+        "hermes-agent/README.md",
+        "hermes-agent/README.zh-CN.md",
+        "docs/实际开发路线.md",
+        "scripts/register_aegis_with_hermes.py"
+      ],
+      "note": "它是当前架构的大脑和入口宿主，但属于外部框架依赖。"
+    },
+    {
+      "id": "aegis_skills",
+      "title": "Aegis Hermes Skills",
+      "sub": "目标拆解、提醒策略、计划变更、复盘、反馈校验和话术",
+      "status": "partial",
+      "tags": [
+        "main"
+      ],
+      "owner": "Aegis",
+      "health": 72,
+      "completion": 70,
+      "desc": "6 个 Skill 文件约束 Hermes 如何规划、提醒、验证反馈、处理计划变更和生成复盘。",
+      "issues": [
+        "Skill 是策略文本，实际执行效果依赖 Hermes 是否加载并遵守",
+        "缺少针对 Skill 行为的端到端验收记录"
+      ],
+      "risks": [
+        "策略和工具调用之间可能出现偏差",
+        "计划变更、反馈校验等高语义场景容易误判"
+      ],
+      "evidence": [
+        "aegis-hermes-skills/aegis/aegis_goal_planner/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_reminder_policy/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_plan_change_interceptor/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_daily_review/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_feedback_validator/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_message_style/SKILL.md"
+      ],
+      "note": "策略拆分完整，运行质量需要靠 Hermes 实际调用链验证。"
+    },
+    {
+      "id": "core_mcp_server",
+      "title": "Aegis Core MCP",
+      "sub": "任务、提醒、反馈、干预事件和执行摘要工具",
+      "status": "solid",
+      "tags": [
+        "main"
+      ],
+      "owner": "Aegis",
+      "health": 88,
+      "completion": 82,
+      "desc": "以 Python + FastMCP + SQLite 实现 Phase 1 领域数据层，暴露 create_task、list_tasks、schedule_reminder、dispatch_due_reminders、record_feedback、complete_task 等工具。",
+      "issues": [
+        "目标和 daily plan 仍只是预留字段，不是完整领域表"
+      ],
+      "risks": [
+        "当前偏最小闭环，复杂计划、长期目标和多任务关系需要后续扩展"
+      ],
+      "evidence": [
+        "aegis-core-mcp/README.md",
+        "aegis-core-mcp/src/aegis_core_mcp/server.py",
+        "aegis-core-mcp/src/aegis_core_mcp/tools.py",
+        "aegis-core-mcp/pyproject.toml",
+        "本地验证：aegis-core-mcp/.venv/bin/python -m pytest -q，14 passed"
+      ],
+      "note": "这是当前最扎实的落地模块，已形成可测试的 Phase 1 主闭环。"
+    },
+    {
+      "id": "sqlite_fact_store",
+      "title": "SQLite 事实库",
+      "sub": "任务、提醒、反馈和干预事件持久化",
+      "status": "solid",
+      "tags": [
+        "main"
+      ],
+      "owner": "Aegis",
+      "health": 85,
+      "completion": 80,
+      "desc": "提供 tasks、reminders、feedbacks、intervention_events 四类核心表，并支持轻量迁移字段。",
+      "issues": [
+        "当前迁移能力较轻量，没有版本化 migration 框架"
+      ],
+      "risks": [
+        "后续 Profile、统计、跨端同步接入后 schema 演进风险会上升"
+      ],
+      "evidence": [
+        "aegis-core-mcp/src/aegis_core_mcp/db.py",
+        "docs/superpowers/specs/2026-05-27-aegis-skills-mcp-core-design.md"
+      ],
+      "note": "适合 MVP，但不应过早承载 Profile 和分析模型。"
+    },
+    {
+      "id": "task_plan_flow",
+      "title": "目标到任务计划流",
+      "sub": "自然语言目标转为任务和提醒",
+      "status": "partial",
+      "tags": [
+        "main"
+      ],
+      "owner": "Hermes Skills + Core MCP",
+      "health": 70,
+      "completion": 65,
+      "desc": "由 aegis_goal_planner 负责拆解任务，再通过 Core MCP 创建任务和安排提醒。",
+      "issues": [
+        "任务拆解质量依赖模型和 Skill 执行",
+        "多日计划和长期目标仍未在 Core MCP 中完整建模"
+      ],
+      "risks": [
+        "宽泛目标可能被拆成不可验证任务",
+        "重复任务检测目前主要靠 Skill 查询和判断"
+      ],
+      "evidence": [
+        "aegis-hermes-skills/aegis/aegis_goal_planner/SKILL.md",
+        "aegis-core-mcp/src/aegis_core_mcp/tools.py",
+        "docs/skills功能清单.md"
+      ],
+      "note": "工具层能落库，智能拆解层还需要实际会话验证。"
+    },
+    {
+      "id": "reminder_dispatch",
+      "title": "提醒派发与重复调度",
+      "sub": "扫描到期任务，生成消息 payload 并自动排下一次",
+      "status": "solid",
+      "tags": [
+        "main"
+      ],
+      "owner": "Aegis",
+      "health": 86,
+      "completion": 82,
+      "desc": "dispatch_due_reminders 会自动扫描到期任务、触发 pending reminder、生成消息和 target，并按默认 3 分钟或配置间隔排下一次提醒。",
+      "issues": [
+        "目前主要是微信文本提醒 payload，不包含真正弹窗、遮罩或锁屏动作"
+      ],
+      "risks": [
+        "如果外部消息发送失败，用户侧提醒可能中断",
+        "升级到 L2-L5 的执行器尚未落地"
+      ],
+      "evidence": [
+        "aegis-core-mcp/src/aegis_core_mcp/tools.py",
+        "aegis-core-mcp/tests/test_core_tools.py",
+        "aegis-core-mcp/README.md",
+        "本地验证：14 passed"
+      ],
+      "note": "Core 内部调度闭环可靠，强干预履约能力仍在后续模块。"
+    },
+    {
+      "id": "reminder_worker",
+      "title": "Aegis Reminder Worker",
+      "sub": "常驻轮询并调用 Hermes send_message",
+      "status": "partial",
+      "tags": [
+        "main",
+        "risk"
+      ],
+      "owner": "Aegis + Hermes",
+      "health": 72,
+      "completion": 68,
+      "desc": "提供 aegis-reminder-worker 命令，支持 dry-run、单次执行、循环执行、Hermes env 加载和发送结果回写。",
+      "issues": [
+        "真实发送依赖 hermes-agent/tools/send_message_tool 路径和 Hermes 环境变量",
+        "未从资料确认生产守护进程部署方式"
+      ],
+      "risks": [
+        "Hermes 内部工具路径变动会导致发送失败",
+        "常驻 worker 的进程管理、重启和日志监控未形成完整运维方案"
+      ],
+      "evidence": [
+        "aegis-core-mcp/src/aegis_core_mcp/worker.py",
+        "aegis-core-mcp/tests/test_worker.py",
+        "aegis-core-mcp/pyproject.toml",
+        "本地验证：14 passed"
+      ],
+      "note": "作为最小执行器已经可用，但生产可靠性仍需补齐。"
+    },
+    {
+      "id": "feedback_completion_summary",
+      "title": "反馈、完成与执行摘要",
+      "sub": "记录反馈、完成任务并生成日报统计",
+      "status": "solid",
+      "tags": [
+        "main"
+      ],
+      "owner": "Aegis",
+      "health": 84,
+      "completion": 78,
+      "desc": "Core MCP 支持 record_feedback、complete_task、delete_task、set_task_reminders_enabled 和 get_execution_summary。",
+      "issues": [
+        "反馈有效性由 Skill 判断，Core MCP 只负责记录事实",
+        "执行摘要目前是计数型摘要，不含深入原因分析"
+      ],
+      "risks": [
+        "没有附件存储和可信位置/图片校验时，photo/location 类反馈只能记录引用"
+      ],
+      "evidence": [
+        "aegis-core-mcp/src/aegis_core_mcp/tools.py",
+        "aegis-hermes-skills/aegis/aegis_feedback_validator/SKILL.md",
+        "aegis-hermes-skills/aegis/aegis_daily_review/SKILL.md",
+        "aegis-core-mcp/tests/test_core_tools.py"
+      ],
+      "note": "事实闭环已具备，复盘质量取决于记录粒度和 Hermes 表达约束。"
+    },
+    {
+      "id": "soft_delete_stop_reminders",
+      "title": "软删除与停止提醒控制",
+      "sub": "区分取消任务和不用提醒",
+      "status": "solid",
+      "tags": [
+        "main"
+      ],
+      "owner": "Aegis",
+      "health": 83,
+      "completion": 80,
+      "desc": "delete_task 只软删除任务；set_task_reminders_enabled 可关闭某任务后续提醒并保留任务。",
+      "issues": [],
+      "risks": [
+        "用户意图识别错误时可能把停止提醒误解为取消任务，需依赖 Skill 约束"
+      ],
+      "evidence": [
+        "aegis-core-mcp/README.md",
+        "aegis-core-mcp/src/aegis_core_mcp/tools.py",
+        "aegis-core-mcp/tests/test_core_tools.py",
+        "aegis-hermes-skills/aegis/aegis_plan_change_interceptor/SKILL.md"
+      ],
+      "note": "这是设计上很关键的防误删边界，已在工具层落地。"
+    },
+    {
+      "id": "registration_script",
+      "title": "Hermes 注册脚本",
+      "sub": "安装 Core MCP 并同步 Aegis Skills",
+      "status": "partial",
+      "tags": [
+        "support",
+        "risk"
+      ],
+      "owner": "Aegis",
+      "health": 68,
+      "completion": 65,
+      "desc": "register_aegis_with_hermes.py 创建/更新 venv，复制 Skills，并向 Hermes config.yaml 写入 mcp_servers 配置。",
+      "issues": [
+        "脚本依赖 PyYAML",
+        "Hermes config.yaml 的实际 schema 兼容性未通过仓库资料证明"
+      ],
+      "risks": [
+        "重复运行、已有配置合并和 Hermes 版本差异可能造成接入失败"
+      ],
+      "evidence": [
+        "scripts/register_aegis_with_hermes.py"
+      ],
+      "note": "自动化方向正确，但需要在真实 Hermes home 上做验收。"
+    },
+    {
+      "id": "test_suite",
+      "title": "Core MCP 测试套件",
+      "sub": "覆盖任务、提醒、worker 和错误返回",
+      "status": "solid",
+      "tags": [
+        "support"
+      ],
+      "owner": "Aegis",
+      "health": 90,
+      "completion": 82,
+      "desc": "pytest 测试覆盖任务提醒反馈闭环、自动扫描到期任务、重复提醒、停止提醒、worker 成功/失败发送等。",
+      "issues": [
+        "系统级 Hermes 接入、真实微信发送和长期守护进程未纳入测试"
+      ],
+      "risks": [
+        "当前测试主要是单元/组件级，不代表端到端上线状态"
+      ],
+      "evidence": [
+        "aegis-core-mcp/tests/test_core_tools.py",
+        "aegis-core-mcp/tests/test_worker.py",
+        "本地验证：aegis-core-mcp/.venv/bin/python -m pytest -q，14 passed"
+      ],
+      "note": "Core 代码可信度较高，跨系统集成测试仍缺。"
+    },
+    {
+      "id": "intervention_mcp",
+      "title": "Aegis Intervention MCP",
+      "sub": "Windows 通知、弹窗、声音、遮罩、全屏阻断和锁屏",
+      "status": "paper",
+      "tags": [
+        "paper",
+        "risk"
+      ],
+      "owner": "Aegis",
+      "health": 25,
+      "completion": 10,
+      "desc": "规划为 Phase 1 Core 跑通后的 P0 模块，用于执行 L2-L5 强提醒和系统级干预。",
+      "issues": [
+        "仓库中没有实际 Intervention MCP 代码目录",
+        "docs/superpowers/plans 中存在 Rust 实施计划但任务未完成"
+      ],
+      "risks": [
+        "强制弹窗、遮罩、锁屏涉及用户安全和逃生口",
+        "Windows API、权限和 UI 稳定性风险高"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "docs/superpowers/plans/2026-05-08-phase1-intervention-mcp-server.md",
+        "docs/superpowers/specs/2026-05-24-aegis-mcp-scope-evaluation.md"
+      ],
+      "note": "这是从轻提醒变成强干预的关键缺口。"
+    },
+    {
+      "id": "safety_guardrails",
+      "title": "强干预安全与逃生口",
+      "sub": "L4/L5 干预安全约束",
+      "status": "paper",
+      "tags": [
+        "risk",
+        "paper"
+      ],
+      "owner": "Aegis",
+      "health": 30,
+      "completion": 15,
+      "desc": "文档要求 L4/L5 必须有开发者逃生口，并记录开始、结束、用户动作和结果。",
+      "issues": [
+        "安全策略目前主要在文档和 Skill 约束中",
+        "没有对应强干预执行器和安全测试"
+      ],
+      "risks": [
+        "未来锁屏、全屏阻断、强制等待可能造成误伤或不可恢复状态",
+        "缺少权限边界、审计和紧急关闭机制会放大风险"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "aegis-hermes-skills/aegis/aegis_reminder_policy/SKILL.md"
+      ],
+      "note": "在实现 Intervention MCP 前应优先把逃生口和失败模式设计成可测试能力。"
+    },
+    {
+      "id": "profile_mcp",
+      "title": "Profile MCP",
+      "sub": "行为模式、规则和激活状态管理",
+      "status": "paper",
+      "tags": [
+        "paper"
+      ],
+      "owner": "Aegis",
+      "health": 35,
+      "completion": 10,
+      "desc": "规划在 Phase 2 管理 Profile CRUD、激活/停用、冲突候选和规则预览。",
+      "issues": [
+        "没有实际代码实现"
+      ],
+      "risks": [
+        "Profile 会影响长期策略和提醒强度，状态冲突处理复杂"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "docs/skills功能清单.md",
+        "docs/superpowers/specs/2026-05-24-aegis-mcp-scope-evaluation.md"
+      ],
+      "note": "属于后续个性化能力，不应阻塞当前 Core MVP。"
+    },
+    {
+      "id": "perception_mcp",
+      "title": "Perception MCP",
+      "sub": "当前 App、窗口、进程、WiFi、空闲时长等感知",
+      "status": "paper",
+      "tags": [
+        "paper",
+        "risk"
+      ],
+      "owner": "Aegis",
+      "health": 28,
+      "completion": 10,
+      "desc": "规划在 Phase 2 提供系统事实感知，供 Hermes 判断是否触发提醒或干预。",
+      "issues": [
+        "没有实际代码实现",
+        "截图、OCR、浏览器语义分析被明确放到基础闭环稳定后再评估"
+      ],
+      "risks": [
+        "系统感知涉及隐私和权限",
+        "误识别前台应用可能导致误干预"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "docs/基于hermes的个人生活助手方案.md"
+      ],
+      "note": "这是从定时提醒升级到行为干预的前置能力。"
+    },
+    {
+      "id": "android_control_mcp",
+      "title": "Android Control / Perception MCP",
+      "sub": "移动端通知、悬浮窗、遮罩、位置和前台 App",
+      "status": "paper",
+      "tags": [
+        "paper",
+        "risk"
+      ],
+      "owner": "Aegis",
+      "health": 25,
+      "completion": 8,
+      "desc": "规划在 Phase 3 接入 Android 控制、Android 感知和跨端状态。",
+      "issues": [
+        "没有实际 Android 客户端或 MCP 代码",
+        "Root、Accessibility、LSPosed 等能力只在方案中出现"
+      ],
+      "risks": [
+        "Android 权限、保活、系统版本兼容和隐私风险都很高"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "docs/基于hermes的个人生活助手方案.md",
+        "docs/全自主开发的个人生活助手方案.md"
+      ],
+      "note": "目前是方向性规划，不能当作已具备能力。"
+    },
+    {
+      "id": "desktop_bridge",
+      "title": "Desktop Bridge / 桌宠与计划中心",
+      "sub": "桌面展示、快捷按钮和桌宠状态",
+      "status": "paper",
+      "tags": [
+        "paper"
+      ],
+      "owner": "Aegis",
+      "health": 30,
+      "completion": 10,
+      "desc": "文档建议桌宠和计划中心优先走本地 WebSocket/Gateway，必要时再 MCP 化。",
+      "issues": [
+        "没有 Tauri、桌宠、计划中心或 WebSocket Bridge 的实际实现"
+      ],
+      "risks": [
+        "UI 和本地控制链路尚未定义验收方式"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "docs/基于hermes的个人生活助手方案.md"
+      ],
+      "note": "这是交互皮肤层，目前不属于 MVP 已落地范围。"
+    },
+    {
+      "id": "analytics_rule_engine",
+      "title": "Analytics / Memory Adapter / Rule Engine",
+      "sub": "完成率、服从率、拖延模式和低延迟规则",
+      "status": "paper",
+      "tags": [
+        "paper"
+      ],
+      "owner": "Aegis",
+      "health": 30,
+      "completion": 8,
+      "desc": "规划在 Phase 4+ 当 Hermes 记忆不足或低延迟规则复杂后再实现。",
+      "issues": [
+        "没有实际统计模型、向量检索或规则引擎代码"
+      ],
+      "risks": [
+        "过早实现会把 MCP 变成另一个大脑，和当前架构边界冲突"
+      ],
+      "evidence": [
+        "docs/mcp功能清单.md",
+        "docs/全自主开发的个人生活助手方案.md"
+      ],
+      "note": "现在应保持纸面规划，不应挤占 Core 与真实消息闭环验证。"
+    },
+    {
+      "id": "native_architecture",
+      "title": "Aegis-Native 自研架构",
+      "sub": "自研事件总线、规则引擎、记忆宫殿和插件运行时",
+      "status": "paper",
+      "tags": [
+        "paper",
+        "risk"
+      ],
+      "owner": "Aegis",
+      "health": 20,
+      "completion": 5,
+      "desc": "作为不依赖 Hermes 的替代长期方案出现，包含 Rust Core、gRPC、三层记忆、Android Daemon 等完整架构设想。",
+      "issues": [
+        "没有对应实现代码",
+        "与当前 Aegis-Hermes MVP 路线不是同一阶段目标"
+      ],
+      "risks": [
+        "若过早切换路线，会显著增加开发周期和维护成本"
+      ],
+      "evidence": [
+        "docs/全自主开发的个人生活助手方案.md",
+        "docs/实际开发路线.md"
+      ],
+      "note": "适合作为远期参考，不应被误判为当前系统能力。"
+    }
+  ],
+  "edges": [
+    {
+      "f": "user",
+      "t": "hermes_agent",
+      "type": "main",
+      "label": "用户通过 Hermes 对话入口提出目标、反馈或计划调整"
+    },
+    {
+      "f": "weixin_messaging",
+      "t": "hermes_agent",
+      "type": "main",
+      "label": "微信/消息平台作为 Hermes 的外部入口和提醒出口"
+    },
+    {
+      "f": "hermes_agent",
+      "t": "aegis_skills",
+      "type": "support",
+      "label": "Hermes 加载 Aegis Skills 约束规划、提醒、反馈和复盘策略"
+    },
+    {
+      "f": "aegis_skills",
+      "t": "task_plan_flow",
+      "type": "main",
+      "label": "Goal Planner 将自然语言目标转为可执行任务意图"
+    },
+    {
+      "f": "task_plan_flow",
+      "t": "core_mcp_server",
+      "type": "main",
+      "label": "通过 create_task 和 schedule_reminder 写入任务和提醒"
+    },
+    {
+      "f": "core_mcp_server",
+      "t": "sqlite_fact_store",
+      "type": "main",
+      "label": "Core MCP 将任务、提醒、反馈和干预事件持久化到 SQLite"
+    },
+    {
+      "f": "core_mcp_server",
+      "t": "reminder_dispatch",
+      "type": "main",
+      "label": "dispatch_due_reminders 扫描到期任务和 pending reminders"
+    },
+    {
+      "f": "reminder_dispatch",
+      "t": "weixin_messaging",
+      "type": "main",
+      "label": "生成 target 和 message，由 Hermes/send_message 发微信"
+    },
+    {
+      "f": "reminder_worker",
+      "t": "reminder_dispatch",
+      "type": "support",
+      "label": "Worker 周期性调用 Core MCP 派发提醒"
+    },
+    {
+      "f": "reminder_worker",
+      "t": "weixin_messaging",
+      "type": "support",
+      "label": "Worker 复用 Hermes send_message_tool 实际发送消息"
+    },
+    {
+      "f": "weixin_messaging",
+      "t": "user",
+      "type": "main",
+      "label": "用户收到提醒并回复反馈或停止提醒"
+    },
+    {
+      "f": "user",
+      "t": "feedback_completion_summary",
+      "type": "main",
+      "label": "用户提交反馈后由 Feedback Validator 判断并写入 Core MCP"
+    },
+    {
+      "f": "feedback_completion_summary",
+      "t": "core_mcp_server",
+      "type": "main",
+      "label": "反馈、完成、软删除和执行摘要都通过 Core MCP 写入或查询"
+    },
+    {
+      "f": "soft_delete_stop_reminders",
+      "t": "core_mcp_server",
+      "type": "support",
+      "label": "停止提醒和取消任务走不同 Core MCP 工具"
+    },
+    {
+      "f": "core_mcp_server",
+      "t": "feedback_completion_summary",
+      "type": "main",
+      "label": "get_execution_summary 为 Daily Review 提供事实来源"
+    },
+    {
+      "f": "registration_script",
+      "t": "hermes_agent",
+      "type": "support",
+      "label": "脚本向 Hermes config.yaml 注册 aegis_core MCP server"
+    },
+    {
+      "f": "registration_script",
+      "t": "aegis_skills",
+      "type": "support",
+      "label": "脚本复制 Aegis Skills 到 Hermes skills 目录"
+    },
+    {
+      "f": "test_suite",
+      "t": "core_mcp_server",
+      "type": "support",
+      "label": "pytest 覆盖 Core MCP 工具闭环"
+    },
+    {
+      "f": "test_suite",
+      "t": "reminder_worker",
+      "type": "support",
+      "label": "pytest 覆盖 worker 发送成功、失败和异常回写"
+    },
+    {
+      "f": "reminder_dispatch",
+      "t": "intervention_mcp",
+      "type": "planned",
+      "label": "未来 L2-L5 提醒应调用本地强干预工具"
+    },
+    {
+      "f": "intervention_mcp",
+      "t": "safety_guardrails",
+      "type": "planned",
+      "label": "强干预执行前必须具备逃生口和审计记录"
+    },
+    {
+      "f": "perception_mcp",
+      "t": "aegis_skills",
+      "type": "planned",
+      "label": "未来系统感知事实将进入提醒和干预策略判断"
+    },
+    {
+      "f": "profile_mcp",
+      "t": "aegis_skills",
+      "type": "planned",
+      "label": "未来 Profile 状态将影响策略解释和提醒强度"
+    },
+    {
+      "f": "android_control_mcp",
+      "t": "perception_mcp",
+      "type": "planned",
+      "label": "移动端控制和感知会构成 Phase 3 跨端能力"
+    },
+    {
+      "f": "desktop_bridge",
+      "t": "hermes_agent",
+      "type": "planned",
+      "label": "桌宠和计划中心可通过 Gateway/WebSocket 与 Hermes 交互"
+    },
+    {
+      "f": "analytics_rule_engine",
+      "t": "core_mcp_server",
+      "type": "planned",
+      "label": "未来从 Core MCP 事实库提取完成率、服从率和规则评估数据"
+    },
+    {
+      "f": "native_architecture",
+      "t": "hermes_agent",
+      "type": "alt",
+      "label": "Aegis-Native 是远期替代路线，不是当前 Hermes 插件化主线"
+    }
+  ]
+}
